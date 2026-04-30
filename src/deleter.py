@@ -58,11 +58,30 @@ def load_dotenv(path: Path) -> None:
 
     Won't overwrite variables already set in the environment (export > file).
     No external deps.
+
+    Encoding-tolerant: Windows tools (Notepad, PowerShell `>` / `Out-File`
+    in PS 5.1) often produce UTF-16 LE or UTF-8-with-BOM; default
+    `read_text()` on Windows decodes as cp1252 and silently produces
+    null-interleaved garbage that crashes `os.environ[k] = v` with
+    "embedded null character". Try BOM-aware UTF-8 first, then UTF-16,
+    then a last-resort UTF-8 with replacement so we at least make
+    progress on a partially-corrupt file.
     """
     if not path.exists():
         return
-    for raw in path.read_text().splitlines():
-        line = raw.strip()
+    text = None
+    for encoding in ("utf-8-sig", "utf-16", "utf-8"):
+        try:
+            text = path.read_text(encoding=encoding)
+            break
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    if text is None:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    for raw in text.splitlines():
+        # Strip null bytes that survived any partial-decode path; without
+        # this, `os.environ[k] = v` raises ValueError on Windows.
+        line = raw.replace("\x00", "").strip().lstrip("﻿")
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
