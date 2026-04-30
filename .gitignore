@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+logs/*.log
+logs/*.db
+logs/*.db-wal
+logs/*.db-shm
+
+# Local Claude Code permissions (per-developer, not project config)
+.claude/
+# IDE / editor cruft
+.vscode/
+.idea/
+.DS_Store
